@@ -1,28 +1,17 @@
-////////////////////
-//Pragma
 #pragma semicolon 1
 #include <tf2items>
 #pragma newdecls required
 
-////////////////////
-//Defines
-#define PLUGIN_VERSION "Beta 2"
 #define MAX_STEAMIDS_PER_WEAPON 5    // How many people's steamIDs can be listed on a weapon to give Self-Made quality to
 #define MAX_STEAMAUTH_LENGTH    21
 #define MAX_COMMUNITYID_LENGTH  18
 
-////////////////////
-//Sourcemod Includes
 #include <sourcemod>
 #include <tf2_stocks>
 #include <sdkhooks>
-
-////////////////////
-//Required Includes
 #include <tf2attributes>
-
-////////////////////
-//Globals
+#include <cw3-core-redux>
+#include <cw3-attributes-redux>
 
 // TF2 Weapon qualities
 enum 
@@ -70,7 +59,7 @@ enum (<<= 1) // SolidFlags_t
 	FSOLID_CUSTOMBOXTEST,               // Ignore solid type + always call into the entity for swept box tests
 	FSOLID_NOT_SOLID,                   // Are we currently not solid?
 	FSOLID_TRIGGER,                     // This is something may be collideable but fires touch functions
-										// even when it's not collideable (when the FSOLID_NOT_SOLID flag is set)
+	// even when it's not collideable (when the FSOLID_NOT_SOLID flag is set)
 	FSOLID_NOT_STANDABLE,               // You can't stand on this
 	FSOLID_VOLUME_CONTENTS,             // Contains volumetric contents (like water)
 	FSOLID_FORCE_WORLD_ALIGNED,         // Forces the collision rep to be world-aligned even if it's SOLID_BSP or SOLID_VPHYSICS
@@ -102,7 +91,7 @@ enum // Collision_Group_t in const.h
 	COLLISION_GROUP_BREAKABLE_GLASS,
 	COLLISION_GROUP_VEHICLE,
 	COLLISION_GROUP_PLAYER_MOVEMENT,  // For HL2, same as Collision_Group_Player, for
-										// TF2, this filters out other players and CBaseObjects
+	// TF2, this filters out other players and CBaseObjects
 	COLLISION_GROUP_NPC,            // Generic NPC group
 	COLLISION_GROUP_IN_VEHICLE,     // for any entity inside a vehicle
 	COLLISION_GROUP_WEAPON,         // for any weapons that need collision detection
@@ -119,6 +108,8 @@ enum // Collision_Group_t in const.h
 	LAST_SHARED_COLLISION_GROUP
 };
 #endif
+
+bool bLate;
 
 Handle aItems[10][5];
 Handle fOnWeaponGive;
@@ -159,7 +150,6 @@ Handle cvarOnlyTeam;
 bool roundRunning = true;
 float arenaEquipUntil;
 int weaponcount;
-int modulecount;
 
 // TODO: Delete this once the wearables plugin is released!
 // [
@@ -172,14 +162,12 @@ bool g_bSdkStarted;
 Handle g_hSdkEquipWearable;
 // ]
 
-bool NativeControl;
-
 public Plugin myinfo =
 {
 	name = "Custom Weapons 3 - Redux",
 	author = "MasterOfTheXP (original cw2 developer), Theray070696 (rewrote cw2 into cw3), Redux by Keith Warren (Drixevel)",
 	description = "Allows players to create and use custom-made weapons.",
-	version = PLUGIN_VERSION,
+	version = "1.0.0",
 	url = "http://sourcemod.com/"
 };
 
@@ -203,17 +191,16 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 	CreateNative("CW3_GetItemNameByIndex", Native_GetItemName);
 	CreateNative("CW3_FindItemByName", Native_FindItemByName);
 	
-	CreateNative("CW3_ControlCW3", Native_ControlCW3);
-	
-	RegPluginLibrary("cw3");
+	RegPluginLibrary("cw3-core-redux");
+	bLate = late;
 	return APLRes_Success;
 }
 
 public void OnPluginStart()
 {
-	RegAdminCmd("sm_custom", Command_Custom, 0);
-	RegAdminCmd("sm_cus", Command_Custom, 0);
-	RegAdminCmd("sm_c", Command_Custom, 0);
+	RegAdminCmd("sm_custom", Command_Custom, ADMFLAG_ROOT);
+	RegAdminCmd("sm_cus", Command_Custom, ADMFLAG_ROOT);
+	RegAdminCmd("sm_c", Command_Custom, ADMFLAG_ROOT);
 	
 	cvarEnabled = CreateConVar("sm_cw3_enable", "1", "Enable Custom Weapons. When set to 0, custom weapons will be removed from all players.");
 	cvarOnlyInSpawn = CreateConVar("sm_cw3_onlyinspawn", "1", "Custom weapons can only be equipped from within a spawn room.");
@@ -222,7 +209,7 @@ public void OnPluginStart()
 	cvarMenu = CreateConVar("sm_cw3_menu", "1", "Clients are allowed to say /custom to equip weapons manually. Set to 0 to disable manual weapon selection without disabling the entire plugin.");
 	cvarSetHealth = CreateConVar("sm_cw3_sethealth", "1", "When a custom weapon is equipped, the user's health will be set to their maximum.");
 	cvarOnlyTeam = CreateConVar("sm_cw3_onlyteam", "0", "If non-zero, custom weapons can only be equipped by one team; 2 = RED, 3 = BLU.");
-	CreateConVar("sm_cw3_version", PLUGIN_VERSION, "Change anything you want, but please don't change this!");
+	CreateConVar("sm_cw3_version", "1.0.0", "Change anything you want, but please don't change this!");
 	
 	HookEvent("post_inventory_application", Event_Resupply);
 	HookEvent("player_hurt", Event_Hurt);
@@ -239,11 +226,122 @@ public void OnPluginStart()
 	{
 		Event_RoundStart(null, "teamplay_round_start", false);
 	}
+}
+
+public void OnConfigsExecuted()
+{	
+	weaponcount = 0;
 	
-	if(!NativeControl)
+	char sPath[PLATFORM_MAX_PATH];
+	BuildPath(Path_SM, sPath, sizeof(sPath), "configs/customweapons");
+	
+	if (!DirExists(sPath))
 	{
-		PrintToChatAll("[SM] Custom Weapons 3 has been updated.\n Please use /c and a resupply locker to re-equip.");
+		CreateDirectory(sPath, 511);
 	}
+	
+	for (TFClassType class = TFClass_Scout; class <= TFClass_Engineer; class++)
+	{
+		for (int slot = 0; slot <= 4; slot++)
+		{
+			if (null == aItems[class][slot]) 
+			{
+				aItems[class][slot] = CreateArray();
+			}
+			else
+			{
+				ClearArray(aItems[class][slot]);
+			}
+		}
+	}
+	
+	Handle hDir = OpenDirectory(sPath);
+	
+	char FileName[PLATFORM_MAX_PATH];
+	FileType type;
+	
+	while ((ReadDirEntry(hDir, FileName, sizeof(FileName), type)))
+	{
+		if (type != FileType_File)
+		{
+			continue;
+		}
+		
+		Format(FileName, sizeof(FileName), "%s/%s", sPath, FileName);
+		Handle hFile = CreateKeyValues("custom_weapon");
+		
+		if (!FileToKeyValues(hFile, FileName))
+		{
+			PrintToServer("[Custom Weapons 3] WARNING! Something seems to have gone wrong with opening %s. It won't be added to the weapons list.", FileName);
+			CloseHandle(hFile);
+			CloseHandle(hDir);
+			continue;
+		}
+		
+		if (!KvJumpToKey(hFile, "classes"))
+		{
+			PrintToServer("[Custom Weapons 3] WARNING! Weapon config %s does not have any classes marked as being able to use the weapon.", FileName);
+			CloseHandle(hFile);
+			CloseHandle(hDir);
+			continue;
+		}
+		
+		int numClasses;
+		for (TFClassType class = TFClass_Scout; class <= TFClass_Engineer; class++)
+		{
+			int value;
+			switch (class)
+			{
+			case TFClass_Scout: value = KvGetNum(hFile, "scout", -1);
+			case TFClass_Soldier: value = KvGetNum(hFile, "soldier", -1);
+			case TFClass_Pyro: value = KvGetNum(hFile, "pyro", -1);
+			case TFClass_DemoMan: value = KvGetNum(hFile, "demoman", -1);
+			case TFClass_Heavy: value = KvGetNum(hFile, "heavy", -1);
+			case TFClass_Engineer: value = KvGetNum(hFile, "engineer", -1);
+			case TFClass_Medic: value = KvGetNum(hFile, "medic", -1);
+			case TFClass_Sniper: value = KvGetNum(hFile, "sniper", -1);
+			case TFClass_Spy: value = KvGetNum(hFile, "spy", -1);
+			}
+			
+			if (value == -1)
+			{
+				continue;
+			}
+			
+			PushArrayCell(aItems[class][value], hFile);
+			numClasses++;
+		}
+		
+		if (!numClasses)
+		{
+			PrintToServer("[Custom Weapons 3] WARNING! Weapon config %s does not have any classes marked as being able to use the weapon.", FileName);
+			CloseHandle(hDir);
+			continue;
+		}
+		
+		weaponcount++;
+	}
+	
+	CloseHandle(hDir);
+	PrintToServer("[Custom Weapons 3] Custom Weapons 3 loaded successfully with %i weapons.", weaponcount);
+	
+	if (bLate)
+	{
+		for (int i = 1; i <= MaxClients; i++)
+		{
+			if (IsClientInGame(i))
+			{
+				OnClientPostAdminCheck(i);
+			}
+		}
+		
+		bLate = false;
+	}
+}
+
+public void OnPluginEnd()
+{
+	RemoveAllCustomWeapons();
 }
 
 public void OnClientPostAdminCheck(int client)
@@ -269,195 +367,12 @@ public void OnClientPostAdminCheck(int client)
 	SDKHook(client, SDKHook_OnTakeDamage, OnTakeDamage);
 }
 
-public void OnMapStart()
-{
-	for (int i = 1; i <= MaxClients; i++) // MaxClients is only guaranteed to be initialized by the time OnMapStart() fires.
-	{
-		if (IsClientInGame(i))
-		{
-			OnClientPostAdminCheck(i);
-		}
-	}
-	
-	weaponcount = 0;
-	modulecount = 0;
-	
-	char Root[PLATFORM_MAX_PATH];
-	BuildPath(Path_SM, Root, sizeof(Root), "configs/customweapons");
-	
-	if (!DirExists(Root))
-	{
-		SetFailState("Custom Weapons' weapon directory (%s) does not exist! Would you kindly install it?", Root);
-	}
-	
-	for (TFClassType class = TFClass_Scout; class <= TFClass_Engineer; class++)
-	{
-		for (int slot = 0; slot <= 4; slot++)
-		{
-			if (null == aItems[class][slot]) 
-			{
-				aItems[class][slot] = CreateArray();
-			}
-			else
-			{
-				ClearArray(aItems[class][slot]);
-			}
-		}
-	}
-	
-	Handle hDir = OpenDirectory(Root);
-	
-	char FileName[PLATFORM_MAX_PATH];
-	FileType type;
-	
-	while ((ReadDirEntry(hDir, FileName, sizeof(FileName), type)))
-	{
-		if (FileType_File != type)
-		{
-			continue;
-		}
-		
-		Format(FileName, sizeof(FileName), "%s/%s", Root, FileName);
-		Handle hFile = CreateKeyValues("Whyisthisneeded");
-		
-		if (!FileToKeyValues(hFile, FileName))
-		{
-			PrintToServer("[Custom Weapons 3] WARNING! Something seems to have gone wrong with opening %s. It won't be added to the weapons list.", FileName);
-			CloseHandle(hDir);
-			continue;
-		}
-		
-		if (!KvJumpToKey(hFile, "classes"))
-		{
-			PrintToServer("[Custom Weapons 3] WARNING! Weapon config %s does not have any classes marked as being able to use the weapon.", FileName);
-			CloseHandle(hDir);
-			continue;
-		}
-		
-		int numClasses;
-		for (TFClassType class = TFClass_Scout; class <= TFClass_Engineer; class++)
-		{
-			int value;
-			switch (class)
-			{
-				case TFClass_Scout: value = KvGetNum(hFile, "scout", -1);
-				case TFClass_Soldier: value = KvGetNum(hFile, "soldier", -1);
-				case TFClass_Pyro: value = KvGetNum(hFile, "pyro", -1);
-				case TFClass_DemoMan: value = KvGetNum(hFile, "demoman", -1);
-				case TFClass_Heavy: value = KvGetNum(hFile, "heavy", -1);
-				case TFClass_Engineer: value = KvGetNum(hFile, "engineer", -1);
-				case TFClass_Medic: value = KvGetNum(hFile, "medic", -1);
-				case TFClass_Sniper: value = KvGetNum(hFile, "sniper", -1);
-				case TFClass_Spy: value = KvGetNum(hFile, "spy", -1);
-			}
-			
-			if (value == -1)
-			{
-				continue;
-			}
-			
-			PushArrayCell(aItems[class][value], hFile);
-			numClasses++;
-		}
-		
-		if (!numClasses)
-		{
-			PrintToServer("[Custom Weapons 3] WARNING! Weapon config %s does not have any classes marked as being able to use the weapon.", FileName);
-			CloseHandle(hDir);
-			continue;
-		}
-		
-		weaponcount++;
-	}
-	
-	CloseHandle(hDir);
-	
-	if (!weaponcount)
-	{
-		PrintToServer("[Custom Weapons 3] WARNING! You don't have any custom weapons installed! You should download some from https://forums.alliedmods.net/showthread.php?t=236242 or make your own.");
-	}
-	
-	char Dir[PLATFORM_MAX_PATH];
-	BuildPath(Path_SM, Dir, sizeof(Dir), "plugins/cw3/modules");
-	
-	if (!DirExists(Dir))
-	{
-		PrintToServer("[Custom Weapons 3] Warning! Custom Weapons' module directory (%s) does not exist! You'll be limited to just stock config options, which is boring.", Root);
-	}
-	else
-	{
-		hDir = OpenDirectory(Dir);
-		
-		while (ReadDirEntry(hDir, FileName, sizeof(FileName), type))
-		{
-			if (FileType_File != type || StrContains(FileName, ".smx") == -1)
-			{
-				continue;
-			}
-			
-			Format(FileName, sizeof(FileName), "cw3/modules/%s", FileName);
-			ServerCommand("sm plugins load %s", FileName);
-			modulecount++;
-		}
-		
-		CloseHandle(hDir);
-	}
-	
-	PrintToServer("[Custom Weapons 3] Custom Weapons 3 loaded successfully with %i weapons, %i modules.", weaponcount, modulecount);
-}
-
-public void OnPluginEnd()
-{
-	RemoveAllCustomWeapons(); // "Your custom weapons have been removed because the Custom Weapons plugin is unloading."
-
-	char Dir[PLATFORM_MAX_PATH];
-	BuildPath(Path_SM, Dir, sizeof(Dir), "plugins/cw3/modules");
-	
-	if (!DirExists(Dir))
-	{
-		PrintToServer("[Custom Weapons 3] WARNING! Custom Weapons' module directory (%s) does not exist, so any running attribute modules will not be unloaded.", Dir);
-	}
-	else
-	{
-		Handle hDir = OpenDirectory(Dir);
-		
-		char FileName[PLATFORM_MAX_PATH];
-		FileType type;
-		
-		while (ReadDirEntry(hDir, FileName, sizeof(FileName), type))
-		{
-			if (FileType_File != type || StrContains(FileName, ".smx") == -1)
-			{
-				continue;
-			}
-			
-			Format(FileName, sizeof(FileName), "cw3/modules/%s", FileName);
-			ServerCommand("sm plugins unload %s", FileName);
-		}
-		
-		CloseHandle(hDir);
-	}
-}
-
 public Action Command_Custom(int client, int args)
 {
 	if (client == 0)
 	{
-		PrintToServer("[Custom Weapons 3] Custom Weapons is loaded with %i weapons, %i modules.", weaponcount, modulecount);
+		ReplyToCommand(client, "[Custom Weapons 3] Custom Weapons is loaded with %i weapons.", weaponcount);
 		return Plugin_Handled;
-	}
-	
-	if (args == 1 && CheckCommandAccess(client, "", ADMFLAG_ROOT, true)) // Allows server owner to reload the plugin dynamically
-	{
-		char szOption[12];
-		GetCmdArgString(szOption, sizeof(szOption));
-		
-		if (StrEqual(szOption, "reload"))
-		{
-			ReplyToCommand(client, "[CW3] Reloading main plugin, all modules and attribute plugins.");
-			ServerCommand("sm plugins reload cw3");
-			return Plugin_Handled;
-		}
 	}
 
 	CustomMainMenu(client);
@@ -466,7 +381,7 @@ public Action Command_Custom(int client, int args)
 
 void CustomMainMenu(int client)
 {
-	if (NativeControl || !GetConVarBool(cvarMenu))
+	if (!GetConVarBool(cvarMenu))
 	{
 		return;
 	}
@@ -495,23 +410,23 @@ void CustomMainMenu(int client)
 		{
 			switch (iWeaponSlot)
 			{
-				case 0: AddMenuItem(menu, "0", "- Primary -");   // First string is the weapon slot it applies to, second string is what's displayed in the menu.
-				case 1: AddMenuItem(menu, "1", "- Secondary -"); // This is necessary because it's possible to have custom primaries, but no custom secondaries.
-				case 2: AddMenuItem(menu, "2", "- Melee -");
-				case 3:
+			case 0: AddMenuItem(menu, "0", "- Primary -");   // First string is the weapon slot it applies to, second string is what's displayed in the menu.
+			case 1: AddMenuItem(menu, "1", "- Secondary -"); // This is necessary because it's possible to have custom primaries, but no custom secondaries.
+			case 2: AddMenuItem(menu, "2", "- Melee -");
+			case 3:
 				{
 					switch (class)
 					{
-						case TFClass_Engineer:  AddMenuItem(menu, "3", "- Build PDA -");
-						case TFClass_Spy:       AddMenuItem(menu, "3", "- Disguise Kit -");
+					case TFClass_Engineer:  AddMenuItem(menu, "3", "- Build PDA -");
+					case TFClass_Spy:       AddMenuItem(menu, "3", "- Disguise Kit -");
 					}
 				}
-				case 4:
+			case 4:
 				{
 					switch (class)
 					{
-						case TFClass_Engineer:  AddMenuItem(menu, "4", "- Destroy PDA -");
-						case TFClass_Spy:       AddMenuItem(menu, "4", "- Cloak -");
+					case TFClass_Engineer:  AddMenuItem(menu, "4", "- Destroy PDA -");
+					case TFClass_Spy:       AddMenuItem(menu, "4", "- Cloak -");
 					}
 				}
 			}
@@ -565,7 +480,7 @@ void CustomMainMenu(int client)
 			}
 			
 			KvRewind(hWeapon);
-			if (KvJumpToKey(hWeapon, "flags") || KvJumpToKey(hWeapon, "flag"))
+			if (KvJumpToKey(hWeapon, "flag") || KvJumpToKey(hWeapon, "flags"))
 			{
 				AdminId adminID = GetUserAdmin(client);
 				
@@ -650,7 +565,7 @@ public int CustomMainHandler(Menu menu, MenuAction action, int param1, int param
 {
 	switch (action)
 	{
-		case MenuAction_Select:
+	case MenuAction_Select:
 		{
 			if (param2 == 5)
 			{
@@ -678,7 +593,7 @@ public int CustomMainHandler(Menu menu, MenuAction action, int param1, int param
 			
 			WeaponSelectMenu(param1, iSlot);
 		}
-		case MenuAction_End:
+	case MenuAction_End:
 		{
 			CloseHandle(menu);
 		}
@@ -699,23 +614,23 @@ void WeaponSelectMenu(int iClient, int iSlot)
 	
 	switch (iSlot)
 	{
-		case 0: SetMenuTitle(hWeaponSelectMenu, "- Primary Custom Weapons -");   // First string is the weapon slot it applies to, second string is what's displayed in the menu.
-		case 1: SetMenuTitle(hWeaponSelectMenu, "- Secondary Custom Weapons -"); // This is necessary because it's possible to have custom primaries, but no custom secondaries.
-		case 2: SetMenuTitle(hWeaponSelectMenu, "- Melee Custom Weapons -");
-		case 3:
+	case 0: SetMenuTitle(hWeaponSelectMenu, "- Primary Custom Weapons -");   // First string is the weapon slot it applies to, second string is what's displayed in the menu.
+	case 1: SetMenuTitle(hWeaponSelectMenu, "- Secondary Custom Weapons -"); // This is necessary because it's possible to have custom primaries, but no custom secondaries.
+	case 2: SetMenuTitle(hWeaponSelectMenu, "- Melee Custom Weapons -");
+	case 3:
 		{
 			switch (BrowsingClass[iClient])
 			{
-				case TFClass_Engineer:  SetMenuTitle(hWeaponSelectMenu, "- Build PDA Custom Weapons -");
-				case TFClass_Spy:       SetMenuTitle(hWeaponSelectMenu, "- Disguise Kit Custom Weapons -");
+			case TFClass_Engineer:  SetMenuTitle(hWeaponSelectMenu, "- Build PDA Custom Weapons -");
+			case TFClass_Spy:       SetMenuTitle(hWeaponSelectMenu, "- Disguise Kit Custom Weapons -");
 			}
 		}
-		case 4:
+	case 4:
 		{
 			switch (BrowsingClass[iClient])
 			{
-				case TFClass_Engineer:  SetMenuTitle(hWeaponSelectMenu, "- Destroy PDA Custom Weapons -");
-				case TFClass_Spy:       SetMenuTitle(hWeaponSelectMenu, "- Cloak Custom Weapons -");
+			case TFClass_Engineer:  SetMenuTitle(hWeaponSelectMenu, "- Destroy PDA Custom Weapons -");
+			case TFClass_Spy:       SetMenuTitle(hWeaponSelectMenu, "- Cloak Custom Weapons -");
 			}
 		}
 	}
@@ -770,7 +685,7 @@ public int WeaponSelectHandler(Menu menu, MenuAction action, int param1, int par
 {
 	switch (action)
 	{
-		case MenuAction_Select:
+	case MenuAction_Select:
 		{
 			if (BrowsingClass[param1] != TF2_GetPlayerClass(param1))
 			{
@@ -792,14 +707,14 @@ public int WeaponSelectHandler(Menu menu, MenuAction action, int param1, int par
 			
 			WeaponInfoMenu(param1, BrowsingClass[param1], StringToInt(sIdxs[0]), StringToInt(sIdxs[1]));
 		}
-		case MenuAction_Cancel:
+	case MenuAction_Cancel:
 		{
 			if (param2 == MenuCancel_ExitBack)
 			{
 				CustomMainMenu(param1);
 			}
 		}
-		case MenuAction_End:
+	case MenuAction_End:
 		{
 			CloseHandle(menu);
 		}
@@ -922,7 +837,7 @@ public int WeaponInfoHandler(Menu menu, MenuAction action, int param1, int param
 {
 	switch (action)
 	{
-		case MenuAction_Select:
+	case MenuAction_Select:
 		{
 			switch (param2)
 			{
@@ -963,7 +878,7 @@ public int WeaponInfoHandler(Menu menu, MenuAction action, int param1, int param
 					WeaponInfoMenu(param1, class, BrowsingSlot[param1], LookingAtItem[param1], 0.2);
 				}
 				case 1:*/
-				case 0:
+			case 0:
 				{
 					TFClassType class = BrowsingClass[param1];
 					int slot = BrowsingSlot[param1];
@@ -987,7 +902,7 @@ public int WeaponInfoHandler(Menu menu, MenuAction action, int param1, int param
 						KvRewind(hWeaponConfig);
 						bool canUseWeapon;
 						
-						if (KvJumpToKey(hWeaponConfig, "flags") || KvJumpToKey(hWeaponConfig, "flag"))
+						if (KvJumpToKey(hWeaponConfig, "flag") || KvJumpToKey(hWeaponConfig, "flags"))
 						{
 							AdminId adminID = GetUserAdmin(param1);
 							
@@ -1058,18 +973,18 @@ public int WeaponInfoHandler(Menu menu, MenuAction action, int param1, int param
 					
 					WeaponInfoMenu(param1, class, slot, index, 0.2);
 				}
-				case 2: WeaponInfoMenu(param1, BrowsingClass[param1], BrowsingSlot[param1], LookingAtItem[param1] - 1);
-				case 3: WeaponInfoMenu(param1, BrowsingClass[param1], BrowsingSlot[param1], LookingAtItem[param1] + 1);
+			case 2: WeaponInfoMenu(param1, BrowsingClass[param1], BrowsingSlot[param1], LookingAtItem[param1] - 1);
+			case 3: WeaponInfoMenu(param1, BrowsingClass[param1], BrowsingSlot[param1], LookingAtItem[param1] + 1);
 			}
 		}
-		case MenuAction_Cancel:
+	case MenuAction_Cancel:
 		{
 			if (param2 == MenuCancel_ExitBack)
 			{
 				CustomMainMenu(param1);
 			}
 		}
-		case MenuAction_End:
+	case MenuAction_End:
 		{
 			CloseHandle(menu);
 		}
@@ -1133,7 +1048,7 @@ int GiveCustomWeapon(int client, Handle hConfig, bool makeActive = true)
 	KvRewind(hConfig);
 	
 	bool canUseWeapon;
-	if (KvJumpToKey(hConfig, "flags") || KvJumpToKey(hConfig, "flag"))
+	if (KvJumpToKey(hConfig, "flag") || KvJumpToKey(hConfig, "flags"))
 	{
 		AdminId adminID = GetUserAdmin(client);
 		if (adminID != INVALID_ADMIN_ID)
@@ -1260,25 +1175,25 @@ int GiveCustomWeapon(int client, Handle hConfig, bool makeActive = true)
 		{
 			switch (class)
 			{
-				case TFClass_Scout: Format(baseClass, sizeof(baseClass), "bat");
-				case TFClass_Soldier: Format(baseClass, sizeof(baseClass), "shovel");
-				case TFClass_DemoMan: Format(baseClass, sizeof(baseClass), "bottle");
-				case TFClass_Engineer: Format(baseClass, sizeof(baseClass), "wrench");
-				case TFClass_Medic: Format(baseClass, sizeof(baseClass), "bonesaw");
-				case TFClass_Sniper: Format(baseClass, sizeof(baseClass), "club");
-				case TFClass_Spy: Format(baseClass, sizeof(baseClass), "knife");
-				default: Format(baseClass, sizeof(baseClass), "fireaxe");
+			case TFClass_Scout: Format(baseClass, sizeof(baseClass), "bat");
+			case TFClass_Soldier: Format(baseClass, sizeof(baseClass), "shovel");
+			case TFClass_DemoMan: Format(baseClass, sizeof(baseClass), "bottle");
+			case TFClass_Engineer: Format(baseClass, sizeof(baseClass), "wrench");
+			case TFClass_Medic: Format(baseClass, sizeof(baseClass), "bonesaw");
+			case TFClass_Sniper: Format(baseClass, sizeof(baseClass), "club");
+			case TFClass_Spy: Format(baseClass, sizeof(baseClass), "knife");
+			default: Format(baseClass, sizeof(baseClass), "fireaxe");
 			}
 		}
 		else if (StrEqual(baseClass, "shotgun", false))
 		{
 			switch (class)
 			{
-				case TFClass_Scout: Format(baseClass, sizeof(baseClass), "scattergun");
-				case TFClass_Soldier, TFClass_DemoMan: Format(baseClass, sizeof(baseClass), "shotgun_soldier");
-				case TFClass_Pyro: Format(baseClass, sizeof(baseClass), "shotgun_pyro");
-				case TFClass_Heavy: Format(baseClass, sizeof(baseClass), "shotgun_hwg");
-				default: Format(baseClass, sizeof(baseClass), "shotgun_primary");
+			case TFClass_Scout: Format(baseClass, sizeof(baseClass), "scattergun");
+			case TFClass_Soldier, TFClass_DemoMan: Format(baseClass, sizeof(baseClass), "shotgun_soldier");
+			case TFClass_Pyro: Format(baseClass, sizeof(baseClass), "shotgun_pyro");
+			case TFClass_Heavy: Format(baseClass, sizeof(baseClass), "shotgun_hwg");
+			default: Format(baseClass, sizeof(baseClass), "shotgun_primary");
 			}
 		}
 		else if (StrEqual(baseClass, "pistol", false) && TFClass_Scout == class)
@@ -1360,14 +1275,14 @@ int GiveCustomWeapon(int client, Handle hConfig, bool makeActive = true)
 			{
 				switch (GetEntProp(i, Prop_Send, "m_iItemDefinitionIndex"))
 				{
-					case 405, 608: TF2_RemoveWearable(client, i);
+				case 405, 608: TF2_RemoveWearable(client, i);
 				}
 			}
 			else
 			{
 				switch (GetEntProp(i, Prop_Send, "m_iItemDefinitionIndex"))
 				{
-					case 57, 231, 642, 133, 444, 131, 406, 1099, 1144: TF2_RemoveWearable(client, i);
+				case 57, 231, 642, 133, 444, 131, 406, 1099, 1144: TF2_RemoveWearable(client, i);
 				}
 			}
 		}
@@ -1382,7 +1297,7 @@ int GiveCustomWeapon(int client, Handle hConfig, bool makeActive = true)
 	{
 		switch (bWearable)
 		{
-			case 2:
+		case 2:
 			{
 				if (KvJumpToKey(hConfig, "worldmodel"))
 				{
@@ -1398,7 +1313,7 @@ int GiveCustomWeapon(int client, Handle hConfig, bool makeActive = true)
 				
 				KvRewind(hConfig);
 			}
-			case 1:
+		case 1:
 			{
 				if (KvJumpToKey(hConfig, "worldmodel"))
 				{
@@ -1815,11 +1730,6 @@ public Action Timer_CheckEquip(Handle timer, any data)
 
 public Action Timer_CheckBotEquip(Handle timer, any data)
 {
-	if (NativeControl)
-	{
-		return;
-	}
-	
 	int client = GetClientOfUserId(data);
 	
 	if (!GetConVarBool(cvarEnabled) || client == 0 || timer != hBotEquipTimer[client])
@@ -2213,11 +2123,6 @@ public int Native_FindItemByName(Handle plugin, int args)
 	return 0;
 }
 
-public int Native_ControlCW3(Handle plugin, int args)
-{
-	NativeControl = GetNativeCell(1);
-}
-
 // STOCKS
 
 stock int GetClientSlot(int client)
@@ -2276,15 +2181,15 @@ stock void TF2_GetClassString(TFClassType class, char[] str, int maxlen, bool pr
 {
 	switch (class)
 	{
-		case TFClass_Scout: Format(str, maxlen, "scout");
-		case TFClass_Soldier: Format(str, maxlen, "soldier");
-		case TFClass_Pyro: Format(str, maxlen, "pyro");
-		case TFClass_DemoMan: Format(str, maxlen, "demoman");
-		case TFClass_Heavy: Format(str, maxlen, "heavy");
-		case TFClass_Engineer: Format(str, maxlen, "engineer");
-		case TFClass_Medic: Format(str, maxlen, "medic");
-		case TFClass_Sniper: Format(str, maxlen, "sniper");
-		case TFClass_Spy: Format(str, maxlen, "spy");
+	case TFClass_Scout: Format(str, maxlen, "scout");
+	case TFClass_Soldier: Format(str, maxlen, "soldier");
+	case TFClass_Pyro: Format(str, maxlen, "pyro");
+	case TFClass_DemoMan: Format(str, maxlen, "demoman");
+	case TFClass_Heavy: Format(str, maxlen, "heavy");
+	case TFClass_Engineer: Format(str, maxlen, "engineer");
+	case TFClass_Medic: Format(str, maxlen, "medic");
+	case TFClass_Sniper: Format(str, maxlen, "sniper");
+	case TFClass_Spy: Format(str, maxlen, "spy");
 	}
 	
 	if (proper)
@@ -2475,16 +2380,6 @@ stock bool TF2_SdkStartup()
 	CloseHandle(hGameConf);
 	g_bSdkStarted = true;
 	return true;
-}
-
-// Common stocks from chdata.inc below
-
-/*
-	Common check that says whether or not a client index is occupied.
-*/
-stock bool IsValidClient(int iClient)
-{
-	return (0 < iClient && iClient <= MaxClients && IsClientInGame(iClient));
 }
 
 stock bool IsClientID(int iClient, char szSteamId[MAX_STEAMAUTH_LENGTH], AuthIdType iAuthId = AuthId_Steam2)

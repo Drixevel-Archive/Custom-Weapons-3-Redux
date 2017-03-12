@@ -646,3 +646,70 @@ stock void Array_Copy(const any[] array, any[] newArray, int size)
 		newArray[i] = array[i];
 	}
 }
+
+stock bool GetClientLookPosition(int client, float fLookpoint[3])
+{
+	float vOrigin[3];
+	GetClientEyePosition(client,vOrigin);
+
+	float vAngles[3];
+	GetClientEyeAngles(client, vAngles);
+
+	Handle trace = TR_TraceRayFilterEx(vOrigin, vAngles, MASK_SHOT, RayType_Infinite, TraceEntityFilterPlayer);
+	bool bReturn = TR_DidHit(trace);
+
+	if (bReturn)
+	{
+		float vStart[3];
+		TR_GetEndPosition(vStart, trace);
+
+		GetVectorDistance(vOrigin, vStart, false);
+
+		float fDistance = -35.0;
+
+		float vBuffer[3];
+		GetAngleVectors(vAngles, vBuffer, NULL_VECTOR, NULL_VECTOR);
+
+		fLookpoint[0] = vStart[0] + (vBuffer[0] * fDistance);
+		fLookpoint[1] = vStart[1] + (vBuffer[1] * fDistance);
+		fLookpoint[2] = vStart[2] + (vBuffer[2] * fDistance);
+	}
+
+	CloseHandle(trace);
+	return bReturn;
+}
+
+public bool TraceEntityFilterPlayer(int entity, int contentsMask)
+{
+	return entity > GetMaxClients() || !entity;
+}
+
+stock int CreateEntityParticle(const char[] sParticle, const float[3] pos, float life = 0.0)
+{
+	int entity = CreateEntityByName("info_particle_system");
+
+	if (IsValidEntity(entity))
+	{
+		TeleportEntity(entity, pos, NULL_VECTOR, NULL_VECTOR);
+		DispatchKeyValue(entity, "effect_name", sParticle);
+		DispatchSpawn(entity);
+		ActivateEntity(entity);
+		AcceptEntityInput(entity, "start");
+
+		if (life > 0.0)
+		{
+			SetEntitySelfDestruct(entity, life);
+		}
+	}
+
+	return entity;
+}
+
+stock void SetEntitySelfDestruct(int entity, float fDuration)
+{
+	char output[64];
+	Format(output, sizeof(output), "OnUser1 !self:kill::%.1f:1", fDuration);
+	SetVariantString(output);
+	AcceptEntityInput(entity, "AddOutput");
+	AcceptEntityInput(entity, "FireUser1");
+}

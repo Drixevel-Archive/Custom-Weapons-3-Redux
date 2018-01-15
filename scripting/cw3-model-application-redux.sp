@@ -1,7 +1,11 @@
 #pragma semicolon 1
+#pragma newdecls required
 
+#include <sourcemod>
+#include <sourcemod-misc>
 #include <tf2_stocks>
 #include <sdkhooks>
+
 #include <cw3-core-redux>
 
 public Plugin myinfo =
@@ -13,19 +17,18 @@ public Plugin myinfo =
 	url = "http://sourcemod.com/"
 };
 
-bool HasCustomViewmodel[2049];
-int ViewmodelOfWeapon[2049];
-bool HasCustomWorldmodel[2049];
-int WorldmodelOfWeapon[2049];
+bool HasCustomViewmodel[MAX_ENTITY_LIMIT];
+int ViewmodelOfWeapon[MAX_ENTITY_LIMIT];
+bool HasCustomWorldmodel[MAX_ENTITY_LIMIT];
+int WorldmodelOfWeapon[MAX_ENTITY_LIMIT];
 
 // TODO: Delete this once the wearables plugin is released!
 // [
-int tiedEntity[2049]; // Entity to tie the wearable to.
-int wearableOwner[2049]; // Who owns this wearable.
-bool onlyVisIfActive[2049]; // NOT "visible weapon". If true, this wearable is only shown if the weapon is active.
-bool hasWearablesTied[2049]; // If true, this entity has (or did have) at least one wearable tied to it.
+int tiedEntity[MAX_ENTITY_LIMIT]; // Entity to tie the wearable to.
+int wearableOwner[MAX_ENTITY_LIMIT]; // Who owns this wearable.
+bool onlyVisIfActive[MAX_ENTITY_LIMIT]; // NOT "visible weapon". If true, this wearable is only shown if the weapon is active.
+bool hasWearablesTied[MAX_ENTITY_LIMIT]; // If true, this entity has (or did have) at least one wearable tied to it.
 
-bool g_bSdkStarted = false;
 Handle g_hSdkEquipWearable;
 // ]
 
@@ -33,7 +36,17 @@ public void OnPluginStart()
 {
 	HookEvent("player_death", Event_Death, EventHookMode_Pre);
 	
-	TF2_SdkStartup();
+	Handle hGameConf = LoadGameConfigFile("tf2items.randomizer");
+	
+	if (hGameConf != null)
+	{
+		StartPrepSDKCall(SDKCall_Player);
+		PrepSDKCall_SetFromConf(hGameConf, SDKConf_Virtual, "CTFPlayer::EquipWearable");
+		PrepSDKCall_AddParameter(SDKType_CBaseEntity, SDKPass_Pointer);
+		g_hSdkEquipWearable = EndPrepSDKCall();
+
+		CloseHandle(hGameConf);
+	}
 }
 
 public void CW3_OnWeaponEntCreated(int weapon, int slot, int client, bool wearable, bool makeActive)
@@ -138,7 +151,7 @@ public void CW3_OnWeaponEntCreated(int weapon, int slot, int client, bool wearab
 	
 	if (KvJumpToKey(hConfig, "worldmodel"))
 	{
-		new String:ModelName[PLATFORM_MAX_PATH];
+		char ModelName[PLATFORM_MAX_PATH];
 		KvGetString(hConfig, "modelname", ModelName, sizeof(ModelName));
 		
 		if (StrContains(ModelName, "models/", false))
@@ -306,7 +319,7 @@ stock int EquipWearable(int client, char[] Mdl, bool vm, int weapon = 0, bool vi
 		hasWearablesTied[weapon] = true;
 		onlyVisIfActive[wearable] = visactive;
 		
-		new effects = GetEntProp(wearable, Prop_Send, "m_fEffects");
+		int effects = GetEntProp(wearable, Prop_Send, "m_fEffects");
 		
 		if (weapon == GetEntPropEnt(client, Prop_Send, "m_hActiveWeapon"))
 		{
@@ -323,7 +336,7 @@ stock int EquipWearable(int client, char[] Mdl, bool vm, int weapon = 0, bool vi
 
 stock int CreateWearable(int client, char[] model, bool vm) // Randomizer code :3
 {
-	new entity = CreateEntityByName(vm ? "tf_wearable_vm" : "tf_wearable");
+	int entity = CreateEntityByName(vm ? "tf_wearable_vm" : "tf_wearable");
 	
 	if (!IsValidEntity(entity))
 	{
@@ -346,36 +359,15 @@ stock int CreateWearable(int client, char[] model, bool vm) // Randomizer code :
 }
 
 // *sigh*
-stock void TF2_EquipWearable(int client, int entity)
+void TF2_EquipWearable(int client, int entity)
 {
-	if (g_bSdkStarted == false || g_hSdkEquipWearable == null)
+	if (g_hSdkEquipWearable == null)
 	{
-		TF2_SdkStartup();
-		LogMessage("Error: Can't call EquipWearable, SDK functions not loaded! If it continues to fail, reload plugin or restart server. Make sure your gamedata is intact!");
+		LogMessage("Error: Can't call EquipWearable, SDK functions not loaded!");
 		return;
 	}
 	
 	SDKCall(g_hSdkEquipWearable, client, entity);
-}
-
-stock bool TF2_SdkStartup()
-{
-	Handle hGameConf = LoadGameConfigFile("tf2items.randomizer");
-	
-	if (hGameConf == null)
-	{
-		LogMessage("Couldn't load SDK functions (GiveWeapon). Make sure tf2items.randomizer.txt is in your gamedata folder! Restart server if you want wearable weapons.");
-		return false;
-	}
-	
-	StartPrepSDKCall(SDKCall_Player);
-	PrepSDKCall_SetFromConf(hGameConf, SDKConf_Virtual, "CTFPlayer::EquipWearable");
-	PrepSDKCall_AddParameter(SDKType_CBaseEntity, SDKPass_Pointer);
-	g_hSdkEquipWearable = EndPrepSDKCall();
-
-	CloseHandle(hGameConf);
-	g_bSdkStarted = true;
-	return true;
 }
 
 stock bool IsValidClient(int client)

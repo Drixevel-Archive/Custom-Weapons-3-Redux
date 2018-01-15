@@ -1,12 +1,17 @@
 #pragma semicolon 1
+#pragma newdecls required
 
+#include <sourcemod>
+#include <sourcemod-misc>
 #include <tf2_stocks>
 #include <sdkhooks>
+
 #include <tf2items>
 #include <tf2attributes>
+
 #include <cw3-core-redux>
 
-bool HasCustomSounds[2049];
+bool HasCustomSounds[MAX_ENTITY_LIMIT];
 
 Handle g_hAllowDownloads;
 Handle g_hDownloadUrl;
@@ -150,8 +155,8 @@ public Action SoundHook(int clients[64], int& numClients, char sound[PLATFORM_MA
 	{
 		if (IsClientInGame(entity))
 		{
-			new client = entity;
-			new wep = GetEntPropEnt(client, Prop_Send, "m_hActiveWeapon");
+			int client = entity;
+			int wep = GetEntPropEnt(client, Prop_Send, "m_hActiveWeapon");
 			
 			if (wep <= 0 || wep > 2048)
 			{

@@ -4,50 +4,6 @@
 #define _cw3_core_redux_included_
 
 /**
-* Called when an equipped weapon is finished being spawned.
-*
-* @param weapon			Entity index of the weapon being equipped.
-* @param client			Client index who is equipping this weapon. Validity check is run before this forward is sent out.
-*
-* @return					Does nothing.
-*/
-forward void CW3_OnWeaponSpawned(int weapon, int slot, int client);
-
-/**
-* Called when a weapon entity has been spawned by tf2items,
-* but the weapon creation process is not complete.
-* Use this forward to do things linked to the weapon entity,
-* such as apply a model, custom attributes, or sounds.
-*
-* @param weapon			Entity index of the weapon being equipped.
-* @param slot   Slot the weapon will be equipped in.
-* @param client			Client index who is equipping this weapon. Validity check is run before this forward is sent out.
-* 
-* Just a tip, you can use the weapon slot to get the weapon Handle.
-*
-* @return					Does nothing.
-*/
-forward void CW3_OnWeaponEntCreated(int weapon, int slot, int client, bool wearable, bool makeActive);
-
-/**
-* Called when a client changes their currently active weapon slot.
-* Use this to toggle visibility of a weapon model if needed.
-*
-* @param client			Client index who changing their active weapon. Validity check is run before this forward is sent out.
-* @param weapon			Entity index of the weapon being switched to.
-* 
-* Just a tip, you can use the weapon slot to get the weapon Handle.
-*
-* @return					Does nothing.
-*/
-forward void CW3_OnWeaponSwitch(int client, int weapon);
-
-
-
-
-
-
-/**
 * Returns a Handle to the client's custom weapon KeyValues config in a specific slot.
 * Note three things:
 * 1. Use KvRewind() before using the Handle;
@@ -139,11 +95,6 @@ native int CW3_EquipItemByIndex(int client, TFClassType class, int slot, int ind
 */
 native int CW3_EquipItemByName(int client, const char[] name, bool makeActive = true);
 
-
-
-
-
-
 /**
 * Checks the amount of custom items available for a specific class, in a specific slot.
 *
@@ -191,21 +142,47 @@ native int CW3_GetItemNameByIndex(TFClassType class, int slot, int index, char[]
 */
 native Handle CW3_FindItemByName(char[] name);
 
+/**
+* Called when an equipped weapon is finished being spawned.
+*
+* @param weapon			Entity index of the weapon being equipped.
+* @param client			Client index who is equipping this weapon. Validity check is run before this forward is sent out.
+*
+* @return					Does nothing.
+*/
+forward void CW3_OnWeaponSpawned(int weapon, int slot, int client);
 
+/**
+* Called when a weapon entity has been spawned by tf2items,
+* but the weapon creation process is not complete.
+* Use this forward to do things linked to the weapon entity,
+* such as apply a model, custom attributes, or sounds.
+*
+* @param weapon			Entity index of the weapon being equipped.
+* @param slot   Slot the weapon will be equipped in.
+* @param client			Client index who is equipping this weapon. Validity check is run before this forward is sent out.
+* 
+* Just a tip, you can use the weapon slot to get the weapon Handle.
+*
+* @return					Does nothing.
+*/
+forward void CW3_OnWeaponEntCreated(int weapon, int slot, int client, bool wearable, bool makeActive);
 
-public SharedPlugin __pl_cw3_core_redux_ = 
-{
-	name = "cw3-core-redux",
-	file = "cw3-core-redux.smx",
-#if defined REQUIRE_PLUGIN
-	required = 1,
-#else
-	required = 0,
-#endif
-};
+/**
+* Called when a client changes their currently active weapon slot.
+* Use this to toggle visibility of a weapon model if needed.
+*
+* @param client			Client index who changing their active weapon. Validity check is run before this forward is sent out.
+* @param weapon			Entity index of the weapon being switched to.
+* 
+* Just a tip, you can use the weapon slot to get the weapon Handle.
+*
+* @return					Does nothing.
+*/
+forward void CW3_OnWeaponSwitch(int client, int weapon);
 
 #if !defined REQUIRE_PLUGIN
-public __pl_cw3_core_redux_SetNTVOptional()
+public void __pl_cw3_core_redux_SetNTVOptional()
 {
 	MarkNativeAsOptional("CW3_GetClientWeapon");
 	MarkNativeAsOptional("CW3_GetWeaponConfig");
@@ -222,3 +199,14 @@ public __pl_cw3_core_redux_SetNTVOptional()
 	MarkNativeAsOptional("CW3_FindItemByName");
 }
 #endif
+
+public SharedPlugin __pl_cw3_core_redux_ = 
+{
+	name = "cw3-core-redux",
+	file = "cw3-core-redux.smx",
+#if defined REQUIRE_PLUGIN
+	required = 1,
+#else
+	required = 0,
+#endif
+};

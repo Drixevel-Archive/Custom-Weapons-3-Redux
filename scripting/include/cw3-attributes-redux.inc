@@ -3,25 +3,9 @@
 #endif
 #define _cw3_attributes_redux_included_
 
-// Global define a la AW2~
-// Slots : Primary(0), Secondary(1), Melee(2), PDA(3), PDA2(4) only. From 0 to 4
-#define MAXSLOTS  4
+// Slots : Primary(0), Secondary(1), Melee(2), Grenade(3), Building(4), PDA(5), Item1(6), Item2(7)
+#define MAXSLOTS  8
 #define MAX_SLOTS  MAXSLOTS
-
-// Here it is! The natives for CW3. Do what you want with it,
-// and keep in mind that this plugin is still in indev, so natives will probably added,
-// and this native might (although it's very unlikely) be changed.
-// Got ideas, suggestions or requests for natives? Post about it at https://forums.alliedmods.net/showthread.php?t=236242 !
-
-// .inc Version: Beta 2
-
-/*  ______ ____  _______          __     _____  _____   _____ 
-|  ____/ __ \|  __ \ \        / /\   |  __ \|  __ \ / ____|
-| |__ | |  | | |__) \ \  /\  / /  \  | |__) | |  | | (___  
-|  __|| |  | |  _  / \ \/  \/ / /\ \ |  _  /| |  | |\___ \ 
-| |   | |__| | | \ \  \  /\  / ____ \| | \ \| |__| |____) |
-|_|    \____/|_|  \_\  \/  \/_/    \_\_|  \_\_____/|_____/  */
-// Well, there's only one; which is crucially important and has been here since the beginning...
 
 /**
 * Called when an equipped weapon requests an attribute.
@@ -46,14 +30,6 @@ forward Action CW3_OnAddAttribute(int slot, int client, const char[] attrib, con
 */
 forward void CW3_OnWeaponRemoved(int slot, int client);
 
-/*   _____ _      _____ ______ _   _ _______ _____ 
-/ ____| |    |_   _|  ____| \ | |__   __/ ____|
-| |    | |      | | | |__  |  \| |  | | | (___  
-| |    | |      | | |  __| | . ` |  | |  \___ \ 
-| |____| |____ _| |_| |____| |\  |  | |  ____) |
-\_____|______|_____|______|_| \_|  |_| |_____/  */
-// Getting/setting clients' custom attributes.
-
 /**
 * Adds an attribute to the specified weapon.
 *
@@ -74,15 +50,6 @@ native bool CW3_AddAttribute(int slot, int client, const char[] attrib, const ch
 * @param slot				Slot index.
 */
 native void CW3_ResetAttribute(int client, int slot);
-
-/*
-_____ _______ ____   _____ _  __ _____ 
-/ ____|__   __/ __ \ / ____| |/ // ____|
-| (___    | | | |  | | |    | ' /| (___  
-\___ \   | | | |  | | |    |  <  \___ \ 
-____) |  | | | |__| | |____| . \ ____) |
-|_____/   |_|  \____/ \_____|_|\_\_____/  */
-// Stuff that could be useful for attribute devs.
 
 // m_bHasAttribute[MAXPLAYERS + 1][MAXSLOTS + 1] causes a super-marginal performance boost. At the end of your CW3_OnAddAttribute function, add the following line:
 // if(!m_bHasAttribute[client][slot]) m_bHasAttribute[client][slot] = bool:action;
@@ -300,6 +267,14 @@ stock float GetAttributeValueF(int client, int slot = -1, const bool[][] baseAtt
 	return 0.0;
 }
 
+#if !defined REQUIRE_PLUGIN
+public void __pl_cw3_attributes_redux_SetNTVOptional()
+{
+	MarkNativeAsOptional("CW3_AddAttribute");
+	MarkNativeAsOptional("CW3_ResetAttribute");
+}
+#endif
+
 public SharedPlugin __pl_cw3_attributes_redux = 
 {
 	name = "cw3-attributes-redux",
@@ -310,11 +285,3 @@ public SharedPlugin __pl_cw3_attributes_redux =
 	required = 0,
 #endif
 };
-
-#if !defined REQUIRE_PLUGIN
-public __pl_cw3_attributes_redux_SetNTVOptional()
-{
-	MarkNativeAsOptional("CW3_AddAttribute");
-	MarkNativeAsOptional("CW3_ResetAttribute");
-}
-#endif

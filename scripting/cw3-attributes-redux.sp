@@ -214,7 +214,7 @@ Action AddAttribute(int slot, int client, char[] attrib, char[] plugin, char[] v
 		whileActive = true;
 	}
 
-	if (StrEqual(plugin, "tf2attributes", false) || StrEqual(plugin, "tf2attributes.int", false) || StrEqual(plugin, "tf2items", false))
+	if (StrEqual(plugin, "tf2attributes", false) || StrEqual(plugin, "tf2-attributes", false) || StrEqual(plugin, "tf2attributes.int", false) || StrEqual(plugin, "tf2items", false))
 	{
 		if (!IsValidEntity(weapon))
 		{

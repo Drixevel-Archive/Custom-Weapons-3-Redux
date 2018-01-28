@@ -11,10 +11,10 @@
 
 #include <cw3-core-redux>
 
-bool HasCustomSounds[MAX_ENTITY_LIMIT];
+bool g_bHasCustomSounds[MAX_ENTITY_LIMIT];
 
-Handle g_hAllowDownloads;
-Handle g_hDownloadUrl;
+ConVar g_hAllowDownloads;
+ConVar g_hDownloadUrl;
 
 public Plugin myinfo =
 {
@@ -34,45 +34,45 @@ public void OnConfigsExecuted()
 {
 	g_hAllowDownloads = FindConVar("sv_allowdownload");
 	g_hDownloadUrl = FindConVar("sv_downloadurl");
-	
+
 	char sPath[PLATFORM_MAX_PATH];
 	BuildPath(Path_SM, sPath, sizeof(sPath), "configs/customweapons");
-	
+
 	if (!DirExists(sPath))
 	{
 		CreateDirectory(sPath, 511);
 	}
-	
+
 	Handle hDir = OpenDirectory(sPath);
-	
+
 	char FileName[PLATFORM_MAX_PATH];
 	FileType type;
-	
+
 	while((ReadDirEntry(hDir, FileName, sizeof(FileName), type)))
 	{
-		if (FileType_File != type)
+		if (FileType_File != type || (StrContains(FileName, ".cfg") == -1 && StrContains(FileName, ".txt") == -1))
 		{
 			continue;
 		}
-		
+
 		Format(FileName, sizeof(FileName), "%s/%s", sPath, FileName);
-		
+
 		Handle hFile = CreateKeyValues("custom_weapon");
-		
+
 		if (!FileToKeyValues(hFile, FileName))
 		{
 			CloseHandle(hDir);
 			continue;
 		}
-		
+
 		if (!KvJumpToKey(hFile, "classes"))
 		{
 			CloseHandle(hDir);
 			continue;
 		}
-		
+
 		int numClasses;
-		
+
 		for (TFClassType class = TFClass_Scout; class <= TFClass_Engineer; class++)
 		{
 			int value;
@@ -88,42 +88,42 @@ public void OnConfigsExecuted()
 			case TFClass_Sniper: value = KvGetNum(hFile, "sniper", -1);
 			case TFClass_Spy: value = KvGetNum(hFile, "spy", -1);
 			}
-			
+
 			if(value == -1)
 			{
 				continue;
 			}
-			
+
 			numClasses++;
 		}
-		
+
 		if (!numClasses)
 		{
 			CloseHandle(hDir);
 			continue;
 		}
-		
+
 		KvRewind(hFile);
-		
+
 		if (KvJumpToKey(hFile, "sound") && KvGotoFirstSubKey(hFile))
 		{
 			do
 			{
 				char section[64];
 				KvGetSectionName(hFile, section, sizeof(section));
-				
+
 				if (StrEqual(section, "player", false))
 				{
 					char replace[PLATFORM_MAX_PATH];
 					KvGetString(hFile, "replace", replace, sizeof(replace));
-					
+
 					SuperPrecacheSound(replace);
 				}
 			}
 			while(KvGotoNextKey(hFile));
 		}
 	}
-	
+
 	CloseHandle(hDir);
 }
 
@@ -133,19 +133,19 @@ public void CW3_OnWeaponEntCreated(int weapon, int slot, int client, bool wearab
 	{
 		return;
 	}
-	
+
 	Handle hConfig = CW3_GetWeaponConfig(weapon);
-	
+
 	if (hConfig == null)
 	{
 		return;
 	}
-	
+
 	KvRewind(hConfig);
-	
+
 	if (KvJumpToKey(hConfig, "sound"))
 	{
-		HasCustomSounds[weapon] = true;
+		g_bHasCustomSounds[weapon] = true;
 	}
 }
 
@@ -157,41 +157,41 @@ public Action SoundHook(int clients[64], int& numClients, char sound[PLATFORM_MA
 		{
 			int client = entity;
 			int wep = GetEntPropEnt(client, Prop_Send, "m_hActiveWeapon");
-			
+
 			if (wep <= 0 || wep > 2048)
 			{
 				return Plugin_Continue;
 			}
-			
-			if (!HasCustomSounds[wep])
+
+			if (!g_bHasCustomSounds[wep])
 			{
 				return Plugin_Continue;
 			}
-			
+
 			Handle hConfig = CW3_GetWeaponConfig(wep);
-			
+
 			if (hConfig == null)
 			{
 				return Plugin_Continue;
 			}
-			
+
 			KvRewind(hConfig);
 			KvJumpToKey(hConfig, "sound");
 			KvGotoFirstSubKey(hConfig);
-			
+
 			do
 			{
 				char section[64];
 				KvGetSectionName(hConfig, section, sizeof(section));
-				
+
 				if (StrEqual(section, "player", false))
 				{
 					char find[PLATFORM_MAX_PATH];
 					KvGetString(hConfig, "find", find, sizeof(find));
-					
+
 					char replace[PLATFORM_MAX_PATH];
 					KvGetString(hConfig, "replace", replace, sizeof(replace));
-					
+
 					if (StrEqual(sound, find, false))
 					{
 						Format(sound, sizeof(sound), replace);
@@ -203,7 +203,7 @@ public Action SoundHook(int clients[64], int& numClients, char sound[PLATFORM_MA
 			while(KvGotoNextKey(hConfig));
 		}
 	}
-	
+
 	return Plugin_Continue;
 }
 
@@ -213,8 +213,8 @@ public void OnEntityDestroyed(int entity)
 	{
 		return;
 	}
-	
-	HasCustomSounds[entity] = false;
+
+	g_bHasCustomSounds[entity] = false;
 }
 
 stock bool HasFastDownload()
@@ -224,22 +224,22 @@ stock bool HasFastDownload()
 	{
 		return false;
 	}
-	
+
 	// if sv_allowdownload 0, fastdl is disabled
 	if (!GetConVarBool(g_hAllowDownloads))
 	{
 		return false;
 	}
-	
+
 	// if sv_downloadurl isn't set, the fastdl isn't enabled properly
 	char strUrl[PLATFORM_MAX_PATH];
 	GetConVarString(g_hDownloadUrl, strUrl, sizeof(strUrl));
-	
+
 	if (StrEqual(strUrl, ""))
 	{
 		return false;
 	}
-	
+
 	return true;
 }
 
@@ -249,13 +249,13 @@ stock void SuperPrecacheSound(char[] strPath, char[] strPluginName = "")
 	{
 		return;
 	}
-	
+
 	PrecacheSound(strPath, true);
-	
+
 	char strBuffer[PLATFORM_MAX_PATH];
 	Format(strBuffer, sizeof(strBuffer), "sound/%s", strPath);
 	AddFileToDownloadsTable(strBuffer);
-	
+
 	if (!FileExists(strBuffer) && !FileExists(strBuffer, true))
 	{
 		if (strlen(strPluginName) == 0)

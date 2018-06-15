@@ -11,10 +11,10 @@
 public Plugin myinfo =
 {
 	name = "Custom Weapons 3 - Redux: Models Application",
-	author = "MasterOfTheXP (original cw2 developer), Theray070696 (rewrote cw2 into cw3), Redux by Keith Warren (Drixevel)",
+	author = "MasterOfTheXP (original cw2 developer), Theray070696 (rewrote cw2 into cw3), Keith Warren (Shaders Allen)",
 	description = "Applies custom models to weapons.",
 	version = "1.0.0",
-	url = "http://sourcemod.com/"
+	url = "http://www.shadersallen.com/"
 };
 
 bool g_bHasCustomViewModel[MAX_ENTITY_LIMIT];
@@ -368,9 +368,4 @@ void TF2_EquipWearable(int client, int entity)
 	}
 
 	SDKCall(g_hSdkEquipWearable, client, entity);
-}
-
-stock bool IsValidClient(int client)
-{
-	return (0 < client && client <= MaxClients && IsClientInGame(client));
 }

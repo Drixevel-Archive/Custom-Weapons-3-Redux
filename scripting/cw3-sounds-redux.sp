@@ -19,10 +19,10 @@ ConVar g_hDownloadUrl;
 public Plugin myinfo =
 {
 	name = "Custom Weapons 3 - Redux: Sounds",
-	author = "MasterOfTheXP (original cw2 developer), Theray070696 (rewrote cw2 into cw3), Redux by Keith Warren (Drixevel)",
+	author = "MasterOfTheXP (original cw2 developer), Theray070696 (rewrote cw2 into cw3), Keith Warren (Shaders Allen)",
 	description = "Applies custom sounds to weapons.",
 	version = "1.0.0",
-	url = "http://sourcemod.com/"
+	url = "http://www.shadersallen.com/"
 };
 
 public void OnPluginStart()

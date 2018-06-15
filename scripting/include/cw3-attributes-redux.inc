@@ -57,47 +57,6 @@ native void CW3_ResetAttribute(int client, int slot);
 bool m_bHasAttribute[MAXPLAYERS + 1][MAXSLOTS + 1];
 
 /**
-* Checks if a client is valid. (Written by Orion)
-*
-* @param client			Client index.
-* @param replaycheck		Whether or not to check if the client is SourceTV or the Replay bot.
-*
-* @return					True if the client is valid, false otherwise.
-*/
-stock bool IsValidClient(int client, bool replaycheck = true)
-{
-	if(client <= 0 || client > MaxClients)
-	{
-		return false;
-	}
-	
-	if(!IsClientInGame(client))
-	{
-		return false;
-	}
-	
-	if(!IsClientConnected(client))
-	{
-		return false;
-	}
-
-	if(GetEntProp(client, Prop_Send, "m_bIsCoaching"))
-	{
-		return false;
-	}
-	
-	if(replaycheck)
-	{
-		if(IsClientSourceTV(client) || IsClientReplay(client))
-		{
-			return false;
-		}
-	}
-	
-	return true;
-}
-
-/**
 * Checks if a client has an attribute in any slot, a specific slot, or in the active slot. (Written by Orion)
 *
 * @param client			Client index.

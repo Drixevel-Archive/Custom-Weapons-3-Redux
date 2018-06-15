@@ -18,10 +18,10 @@ Handle fOnWeaponRemoved;
 public Plugin myinfo =
 {
 	name = "Custom Weapons 3 - Redux: Attributes",
-	author = "MasterOfTheXP (original cw2 developer), Theray070696 (rewrote cw2 into cw3), Redux by Keith Warren (Drixevel)",
+	author = "MasterOfTheXP (original cw2 developer), Theray070696 (rewrote cw2 into cw3), Keith Warren (Shaders Allen)",
 	description = "Applies default or custom attributes to the custom weapons.",
 	version = "1.0.0",
-	url = "http://sourcemod.com/"
+	url = "http://www.shadersallen.com/"
 };
 
 public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)

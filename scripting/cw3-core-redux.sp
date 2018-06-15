@@ -102,10 +102,10 @@ Handle g_hSdkEquipWearable;
 public Plugin myinfo =
 {
 	name = "Custom Weapons 3 - Redux",
-	author = "MasterOfTheXP (original cw2 developer), Theray070696 (rewrote cw2 into cw3), Redux by Keith Warren (Drixevel)",
+	author = "MasterOfTheXP (original cw2 developer), Theray070696 (rewrote cw2 into cw3), Keith Warren (Shaders Allen)",
 	description = "Allows players to create and use custom-made weapons.",
 	version = "1.0.0",
-	url = "http://sourcemod.com/"
+	url = "http://www.shadersallen.com/"
 };
 
 public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
@@ -339,7 +339,7 @@ void CustomMainMenu(int client)
 		return;
 	}
 
-	Handle menu = CreateMenu(CustomMainHandler);
+	Menu menu = CreateMenu(CustomMainHandler);
 
 	//int counts[MAXSLOTS];
 	TFClassType class;
@@ -448,7 +448,7 @@ void WeaponSelectMenu(int iClient, int iSlot, TFClassType iClass)
 	int counts[MAXSLOTS];
 	counts[iSlot] = GetArraySize(g_hItems[iClass][iSlot]);
 
-	Handle hWeaponSelectMenu = CreateMenu(WeaponSelectHandler);
+	Menu hWeaponSelectMenu = CreateMenu(WeaponSelectHandler);
 
 	switch (iSlot)
 	{
@@ -567,7 +567,7 @@ void WeaponInfoMenu(int client, TFClassType class, int slot, int weapon, float d
 		return;
 	}
 
-	Handle menu = CreateMenu(WeaponInfoHandler);
+	Menu menu = CreateMenu(WeaponInfoHandler);
 	Handle hWeapon = GetArrayCell(g_hItems[class][slot], weapon);
 
 	KvRewind(hWeapon);
@@ -838,8 +838,8 @@ int GiveCustomWeapon(int client, Handle hConfig, bool makeActive = true)
 
 	KvRewind(hConfig);
 
-	char name[96];
-	KvGetSectionName(hConfig, name, sizeof(name));
+	char sName[96];
+	KvGetSectionName(hConfig, sName, sizeof(sName));
 
 	char baseClass[64];
 	KvGetString(hConfig, "baseclass", baseClass, sizeof(baseClass));
@@ -908,7 +908,7 @@ int GiveCustomWeapon(int client, Handle hConfig, bool makeActive = true)
 
 		if (slot == -1)
 		{
-			ThrowError("Slot could not be determined for weapon \"%s\"", name);
+			ThrowError("Slot could not be determined for weapon \"%s\"", sName);
 		}
 	}
 
@@ -1056,10 +1056,10 @@ int GiveCustomWeapon(int client, Handle hConfig, bool makeActive = true)
 		}
 	}
 
-	int ent = TF2Items_GiveNamedItem(client, hWeapon);
+	int entity = TF2Items_GiveNamedItem(client, hWeapon);
 	CloseHandle(hWeapon);
 
-	DispatchKeyValue(ent, "targetname", name);
+	DispatchKeyValue(entity, "targetname", sName);
 
 	g_iEntRefOfCustomWearable[client][slot] = INVALID_ENT_REFERENCE;
 
@@ -1076,7 +1076,7 @@ int GiveCustomWeapon(int client, Handle hConfig, bool makeActive = true)
 
 					if (ModelName[0] != '\0' && FileExists(ModelName, true))
 					{
-						SetModelIndex(ent, ModelName);
+						SetModelIndex(entity, ModelName);
 						CreateWearable(client, ModelName, true);
 					}
 				}
@@ -1092,8 +1092,8 @@ int GiveCustomWeapon(int client, Handle hConfig, bool makeActive = true)
 
 					if (ModelName[0] != '\0' && FileExists(ModelName, true))
 					{
-						SetModelIndex(ent, ModelName);
-						g_iEntRefOfCustomWearable[client][slot] = EntIndexToEntRef(ent);
+						SetModelIndex(entity, ModelName);
+						g_iEntRefOfCustomWearable[client][slot] = EntIndexToEntRef(entity);
 					}
 				}
 
@@ -1101,30 +1101,30 @@ int GiveCustomWeapon(int client, Handle hConfig, bool makeActive = true)
 			}
 		}
 
-		TF2_EquipWearable(client, ent);
+		TF2_EquipWearable(client, entity);
 
 		ClientCommand(client, "slot3");
 		OnWeaponSwitch(client, GetPlayerWeaponSlot(client, TFWeaponSlot_Melee));
 	}
 	else
 	{
-		EquipPlayerWeapon(client, ent);
+		EquipPlayerWeapon(client, entity);
 	}
 
 	if (itemQuality == TFQual_Selfmade && !KvJumpToKey(hConfig, "nosparkle"))
 	{
-		TF2Attrib_SetByName(ent, "attach particle effect", 4.0);
-		TF2Attrib_SetByName(ent, "selfmade description", 1.0);
+		TF2Attrib_SetByName(entity, "attach particle effect", 4.0);
+		TF2Attrib_SetByName(entity, "selfmade description", 1.0);
 	}
 
 	if (ammo != -1)
 	{
-		SetAmmo(client, ent, ammo);
+		SetAmmo(client, entity, ammo);
 	}
 
 	if (mag != -1)
 	{
-		SetClip(ent, mag);
+		SetClip(entity, mag);
 	}
 
 	if (metal != -1)
@@ -1145,13 +1145,13 @@ int GiveCustomWeapon(int client, Handle hConfig, bool makeActive = true)
 
 			if (iExtraWearable != -1)
 			{
-				g_iWeaponOfExtraWearable[iExtraWearable] = ent;
+				g_iWeaponOfExtraWearable[iExtraWearable] = entity;
 
 				int effects = GetEntProp(iExtraWearable, Prop_Send, "m_fEffects");
 				SetEntProp(iExtraWearable, Prop_Send, "m_fEffects", effects & ~EF_NODRAW);
 			}
 
-			g_bHasExtraWearable[ent] = true;
+			g_bHasExtraWearable[entity] = true;
 
 			int attachment = KvGetNum(hConfig, "attachment", -1);
 			if (attachment > -1)
@@ -1176,7 +1176,7 @@ int GiveCustomWeapon(int client, Handle hConfig, bool makeActive = true)
 				}
 			}
 
-			int m_hExtraWearable = GetEntPropEnt(ent, Prop_Send, "m_hExtraWearable");
+			int m_hExtraWearable = GetEntPropEnt(entity, Prop_Send, "m_hExtraWearable");
 			if (IsValidEntity(m_hExtraWearable))
 			{
 				int replace = KvGetNum(hConfig, "replace", 1);
@@ -1191,18 +1191,18 @@ int GiveCustomWeapon(int client, Handle hConfig, bool makeActive = true)
 				}
 				else if (replace == 3)
 				{
-					SetEntPropEnt(ent, Prop_Send, "m_hExtraWearable", iExtraWearable);
+					SetEntPropEnt(entity, Prop_Send, "m_hExtraWearable", iExtraWearable);
 					TF2_RemoveWearable(client, m_hExtraWearable);
 				}
 			}
 		}
 	}
 
-	IsCustom[ent] = true;
-	CustomConfig[ent] = hConfig;
+	IsCustom[entity] = true;
+	CustomConfig[entity] = hConfig;
 
 	Call_StartForward(g_hForward_OnWeaponEntCreated);
-	Call_PushCell(ent);
+	Call_PushCell(entity);
 	Call_PushCell(slot);
 	Call_PushCell(client);
 	Call_PushCell(view_as<int>(bWearable));
@@ -1211,8 +1211,8 @@ int GiveCustomWeapon(int client, Handle hConfig, bool makeActive = true)
 
 	if (StrEqual(baseClass, "tf_weapon_sapper", false) || StrEqual(baseClass, "tf_weapon_builder", false))
 	{
-		SetEntProp(ent, Prop_Send, "m_iObjectType", 3);
-		SetEntProp(ent, Prop_Data, "m_iSubType", 3);
+		SetEntProp(entity, Prop_Send, "m_iObjectType", 3);
+		SetEntProp(entity, Prop_Data, "m_iSubType", 3);
 	}
 
 	if (!bWearable)
@@ -1220,7 +1220,7 @@ int GiveCustomWeapon(int client, Handle hConfig, bool makeActive = true)
 		if (makeActive && !StrEqual(baseClass, "tf_weapon_invis", false))
 		{
 			ClientCommand(client, "slot%i", slot+1);
-			OnWeaponSwitch(client, ent);
+			OnWeaponSwitch(client, entity);
 		}
 		else
 		{
@@ -1230,12 +1230,12 @@ int GiveCustomWeapon(int client, Handle hConfig, bool makeActive = true)
 
 	Action act = Plugin_Continue;
 	Call_StartForward(g_hForward_OnWeaponGive);
-	Call_PushCell(ent);
+	Call_PushCell(entity);
 	Call_PushCell(slot);
 	Call_PushCell(client);
 	Call_Finish(act);
 
-	return ent;
+	return entity;
 }
 
 public void OnWeaponSwitch(int client, int weapon)
@@ -1335,7 +1335,7 @@ public Action OnTakeDamage(int iVictim, int &iAtker, int &iInflictor, float &flD
 {
 	if (0 < iAtker && iAtker <= MaxClients)
 	{
-		g_iTheWeaponSlotIWasLastHitBy[iVictim] = GetWeaponEntitySlot(iAtker, iWeapon);
+		g_iTheWeaponSlotIWasLastHitBy[iVictim] = GetWeaponSlot(iAtker, iWeapon);
 	}
 
 	return Plugin_Continue;
@@ -1624,10 +1624,10 @@ public Action Timer_OneSecond(Handle timer)
 
 				KvRewind(CustomConfig[medigun]);
 
-				char name[64];
-				KvGetSectionName(CustomConfig[medigun], name, sizeof(name));
+				char sName[64];
+				KvGetSectionName(CustomConfig[medigun], sName, sizeof(sName));
 
-				Format(customHealers, sizeof(customHealers), "%s%s%N is using: %s", customHealers, numCustomHealers++ ? "\n" : "", i, name);
+				Format(customHealers, sizeof(customHealers), "%s%s%N is using: %s", customHealers, numCustomHealers++ ? "\n" : "", i, sName);
 			}
 
 			if (numCustomHealers)
@@ -1698,10 +1698,10 @@ public int Native_GetClientWeaponName(Handle plugin, int args)
 
 	KvRewind(CustomConfig[wep]);
 
-	char[] name = new char[namelen];
-	KvGetSectionName(CustomConfig[wep], name, namelen);
+	char[] sName = new char[namelen];
+	KvGetSectionName(CustomConfig[wep], sName, namelen);
 
-	SetNativeString(3, name, namelen);
+	SetNativeString(3, sName, namelen);
 	return true;
 }
 
@@ -1745,8 +1745,8 @@ public int Native_EquipItemName(Handle plugin, int args)
 {
 	int client = GetNativeCell(1);
 
-	char name[96];
-	GetNativeString(2, name, sizeof(name));
+	char sName[96];
+	GetNativeString(2, sName, sizeof(sName));
 
 	bool makeActive = GetNativeCell(3);
 
@@ -1779,7 +1779,7 @@ public int Native_EquipItemName(Handle plugin, int args)
 				char jName[96];
 				KvGetSectionName(hConfig, jName, sizeof(jName));
 
-				if (StrEqual(name, jName, false))
+				if (StrEqual(sName, jName, false))
 				{
 					return GiveCustomWeapon(client, hConfig, makeActive);
 				}
@@ -1833,19 +1833,19 @@ public int Native_GetItemName(Handle plugin, int args)
 	Handle hWeapon = GetArrayCell(g_hItems[class][slot], index);
 	KvRewind(hWeapon);
 
-	char[] name = new char[namelen];
-	KvGetSectionName(hWeapon, name, namelen);
+	char[] sName = new char[namelen];
+	KvGetSectionName(hWeapon, sName, namelen);
 
 	int bytes;
-	SetNativeString(4, name, namelen, _, bytes);
+	SetNativeString(4, sName, namelen, _, bytes);
 
 	return bytes;
 }
 
 public int Native_FindItemByName(Handle plugin, int args)
 {
-	char name[96];
-	GetNativeString(1, name, sizeof(name));
+	char sName[96];
+	GetNativeString(1, sName, sizeof(sName));
 
 	for (TFClassType class = TFClass_Scout; class <= TFClass_Engineer; class++)
 	{
@@ -1861,7 +1861,7 @@ public int Native_FindItemByName(Handle plugin, int args)
 				char jName[96];
 				KvGetSectionName(hConfig, jName, sizeof(jName));
 
-				if (StrEqual(name, jName, false))
+				if (StrEqual(sName, jName, false))
 				{
 					return view_as<int>(hConfig);
 				}

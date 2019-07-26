@@ -358,7 +358,6 @@ stock int CreateWearable(int client, char[] model, bool vm) // Randomizer code :
 	return entity;
 }
 
-// *sigh*
 void TF2_EquipWearable(int client, int entity)
 {
 	if (g_hSdkEquipWearable == null)
